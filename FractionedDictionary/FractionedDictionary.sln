@@ -5,6 +5,8 @@ VisualStudioVersion = 14.0.25029.0
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "FractionedDictionary", "FractionedDictionary\FractionedDictionary.csproj", "{BCFE2FB4-2D31-49FA-9C01-040BE7451066}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "FractionedDictionary.Test", "FractionedDictionary.Test\FractionedDictionary.Test.csproj", "{EB0CED35-ED5B-4710-A384-B033C6A6A876}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -15,6 +17,10 @@ Global
 		{BCFE2FB4-2D31-49FA-9C01-040BE7451066}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{BCFE2FB4-2D31-49FA-9C01-040BE7451066}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{BCFE2FB4-2D31-49FA-9C01-040BE7451066}.Release|Any CPU.Build.0 = Release|Any CPU
+		{EB0CED35-ED5B-4710-A384-B033C6A6A876}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{EB0CED35-ED5B-4710-A384-B033C6A6A876}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{EB0CED35-ED5B-4710-A384-B033C6A6A876}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{EB0CED35-ED5B-4710-A384-B033C6A6A876}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
