@@ -1,193 +1,156 @@
 ﻿using System.Collections.Generic;
-using System.Threading;
 #pragma warning disable 420
 
 namespace FractionedDictionary
 {
-    internal sealed class DataHolder<TKey, TValue> : BaseDictionary<TKey, TValue>
+    internal class BinaryDataTree<TKey, TValue>
     {
-        private volatile BinaryDataTree _root = null;
+        internal static readonly BinaryDataTree<TKey, TValue> Empty = new DefaultBinaryDataTree();
+        private readonly KeyValuePair<TKey, TValue> _pair;
+        private volatile BinaryDataTree<TKey, TValue> _left;
+        private volatile BinaryDataTree<TKey, TValue> _right;
 
-        public int TryAdd(KeyValuePair<TKey, TValue> data, Comparer<TKey> keyComparer)
+        internal BinaryDataTree(KeyValuePair<TKey, TValue> pair) : this(pair, Empty, Empty) {}
+
+        private BinaryDataTree(KeyValuePair<TKey, TValue> pair, BinaryDataTree<TKey, TValue> left,
+            BinaryDataTree<TKey, TValue> right)
         {
-            var node = new BinaryDataTree(data);
-            var rootCopy = _root;
-            if (rootCopy == null)
-            {
-                rootCopy = Interlocked.CompareExchange(ref _root, node, null);
-                if (rootCopy == null) return 1;
-            }
-            BinaryDataTree newRoot;
-            while (rootCopy.TryAdd(node, keyComparer, out newRoot))
-            {
-                var newRootCopy = Interlocked.CompareExchange(ref _root, newRoot, rootCopy);
-                if (newRootCopy == rootCopy) return 1;
-                if (newRootCopy == null)
-                {
-                    newRootCopy = Interlocked.CompareExchange(ref _root, node, null);
-                    if (newRootCopy == null) return 1;
-                }
-                rootCopy = newRootCopy;
-            }
-            return 0;
+            _pair = pair;
+            _left = left;
+            _right = right;
         }
 
-        public int TryRemove(TKey key, Comparer<TKey> keyComparer)
+        public virtual bool TryAdd(KeyValuePair<TKey, TValue> node, IComparer<TKey> keyComparer,
+            out BinaryDataTree<TKey, TValue> root)
         {
-            var rootCopy = _root;
-            if (rootCopy == null) return 0;
-            BinaryDataTree newRoot;
-            while (rootCopy != null && rootCopy.TryRemove(key, keyComparer, out newRoot))
+            var compareResult = keyComparer.Compare(_pair.Key, node.Key);
+            if (compareResult<0)
             {
-                var newRootCopy = Interlocked.CompareExchange(ref _root, newRoot, rootCopy);
-                if (newRootCopy == rootCopy) return -1;
-                rootCopy = newRootCopy;
-            }
-            return 0;
-        }
-
-        private sealed class BinaryDataTree
-        {
-            private readonly KeyValuePair<TKey, TValue> _pair;
-            private volatile BinaryDataTree _left;
-            private volatile BinaryDataTree _right;
-
-            internal BinaryDataTree(KeyValuePair<TKey, TValue> pair) : this(pair, null, null)
-            {
-            }
-
-            private BinaryDataTree(KeyValuePair<TKey, TValue> pair, BinaryDataTree left, BinaryDataTree right)
-            {
-                _pair = pair;
-                _left = left;
-                _right = right;
-            }
-
-            internal bool TryAdd(BinaryDataTree node, IComparer<TKey> keyComparer, out BinaryDataTree root)
-            {
-                var compareResult = keyComparer.Compare(_pair.Key, node._pair.Key);
-                if (compareResult<0)
+                if (_left.TryAdd(node, keyComparer, out root))
                 {
-                    if (_left == null)
-                    {
-                        root = new BinaryDataTree(_pair, node, _right);
-                        return true;
-                    }
-                    BinaryDataTree subRoot;
-                    if (_left.TryAdd(node, keyComparer, out subRoot))
-                    {
-                        root = new BinaryDataTree(_pair, subRoot, _right);
-                        return true;
-                    }
-                }
-                else if (compareResult>0)
-                {
-                    if (_right == null)
-                    {
-                        root = new BinaryDataTree(_pair, _left, node);
-                        return true;
-                    }
-                    BinaryDataTree subRoot;
-                    if (_right.TryAdd(node, keyComparer, out subRoot))
-                    {
-                        root = new BinaryDataTree(_pair, _left, subRoot);
-                        return true;
-                    }
-                }
-                root = this;
-                return false;
-            }
-
-            internal bool TryRemove(TKey key, IComparer<TKey> keyComparer, out BinaryDataTree root)
-            {
-                var compareResult = keyComparer.Compare(_pair.Key, key);
-                if (compareResult == 0)
-                {
-                    if (_left != null && _right != null)
-                    {
-                        var rightParent = _left;
-                        while (rightParent._right != null)
-                        {
-                            rightParent = rightParent._right;
-                        }
-                        rightParent._right = _right;
-                        root = _left;
-                        return true;
-                    }
-                    if (_left == null && _right == null)
-                    {
-                        root = null;
-                    }
-                    else
-                    {
-                        root = _left??_right;
-                    }
+                    root = new BinaryDataTree<TKey, TValue>(_pair, root, _right);
                     return true;
                 }
-                if (compareResult < 0)
+            }
+            else if (compareResult>0)
+            {
+                if (_right.TryAdd(node, keyComparer, out root))
                 {
-                    if (_left == null)
-                    {
-                        root = this;
-                        return false;
-                    }
-                    BinaryDataTree subRoot;
-                    if (_left.TryRemove(key, keyComparer, out subRoot))
-                    {
-                        root = new BinaryDataTree(_pair, subRoot, _right);
-                        return true;
-                    }
+                    root = new BinaryDataTree<TKey, TValue>(_pair, _left, root);
+                    return true;
                 }
-                else if (compareResult > 0)
+            }
+            root = this;
+            return false;
+        }
+
+        public virtual bool TryRemove(TKey key, IComparer<TKey> keyComparer, out BinaryDataTree<TKey, TValue> root)
+        {
+            var compareResult = keyComparer.Compare(_pair.Key, key);
+            if (compareResult == 0)
+            {
+                if (_left.IsEmpty)
                 {
-                    if (_right == null)
-                    {
-                        root = this;
-                        return false;
-                    }
-                    BinaryDataTree subRoot;
-                    if (_right.TryRemove(key, keyComparer, out subRoot))
-                    {
-                        root = new BinaryDataTree(_pair, _left, subRoot);
-                        return true;
-                    }
+                    root = _right;
                 }
+                else if(_right.IsEmpty)
+                {
+                    root = _left;
+                }
+                else
+                {
+                    var rightParent = _left;
+                    while (!rightParent._right.IsEmpty)
+                    {
+                        rightParent = rightParent._right;
+                    }
+                    rightParent._right = _right;
+                    root = _left;
+                    return true;
+                }
+                return true;
+            }
+            if (compareResult<0)
+            {
+                if (_left.TryRemove(key, keyComparer, out root))
+                {
+                    root = new BinaryDataTree<TKey, TValue>(_pair, root, _right);
+                    return true;
+                }
+            }
+            else if (compareResult>0 && _right.TryRemove(key, keyComparer, out root))
+            {
+                root = new BinaryDataTree<TKey, TValue>(_pair, _left, root);
+                return true;
+            }
+            root = this;
+            return false;
+        }
+
+        public virtual int AddOrUpdate(KeyValuePair<TKey, TValue> node, IComparer<TKey> keyComparer,
+            out BinaryDataTree<TKey, TValue> root)
+        {
+            var compareResult = keyComparer.Compare(_pair.Key, node.Key);
+            if (compareResult<0)
+            {
+                var changeCount = _left.AddOrUpdate(node, keyComparer, out root);
+                root = new BinaryDataTree<TKey, TValue>(_pair, root, _right);
+                return changeCount;
+            }
+            if (compareResult>0)
+            {
+                var changeCount = _right.AddOrUpdate(node, keyComparer, out root);
+                root = new BinaryDataTree<TKey, TValue>(_pair, _left, root);
+                return changeCount;
+            }
+            root = new BinaryDataTree<TKey, TValue>(node, _left, _right);
+            return 0;
+        }
+
+        public virtual bool TryGetValue(TKey key, IComparer<TKey> keyComparer, out TValue value)
+        {
+            value = _pair.Value;
+            var compareResult = keyComparer.Compare(_pair.Key, key);
+            return compareResult == 0 ||
+                   (compareResult>0
+                       ?_right.TryGetValue(key, keyComparer, out value)
+                       :_left.TryGetValue(key, keyComparer, out value));
+        }
+
+        protected virtual bool IsEmpty => false;
+
+        private sealed class DefaultBinaryDataTree : BinaryDataTree<TKey, TValue>
+        {
+            internal DefaultBinaryDataTree() : base(default(KeyValuePair<TKey, TValue>), null, null) {}
+
+            public override bool TryAdd(KeyValuePair<TKey, TValue> pair, IComparer<TKey> keyComparer,
+                out BinaryDataTree<TKey, TValue> root)
+            {
+                root = new BinaryDataTree<TKey, TValue>(pair, this, this);
+                return true;
+            }
+
+            public override bool TryRemove(TKey key, IComparer<TKey> keyComparer,
+                out BinaryDataTree<TKey, TValue> root)
+            {
                 root = this;
                 return false;
             }
 
-            internal int AddOrUpdate(BinaryDataTree node, IComparer<TKey> keyComparer, out BinaryDataTree root)
+            public override int AddOrUpdate(KeyValuePair<TKey, TValue> pair, IComparer<TKey> keyComparer,
+                out BinaryDataTree<TKey, TValue> root)
             {
-                var compareResult = keyComparer.Compare(_pair.Key, node._pair.Key);
-                if (compareResult<0)
-                {
-                    if (_left == null)
-                    {
-                        root = new BinaryDataTree(_pair, node, _right);
-                        return 1;
-                    }
-                    BinaryDataTree subRoot;
-                    var changeCount = _left.AddOrUpdate(node, keyComparer, out subRoot);
-                    root = new BinaryDataTree(_pair, subRoot, _right);
-                    return changeCount;
-                }
-                if (compareResult>0)
-                {
-                    if (_right == null)
-                    {
-                        root = new BinaryDataTree(_pair, _left, node);
-                        return 1;
-                    }
-                    BinaryDataTree subRoot;
-                    var changeCount = _right.AddOrUpdate(node, keyComparer, out subRoot);
-                    root = new BinaryDataTree(_pair, _left, subRoot);
-                    return changeCount;
-                }
-                node._right = _right;
-                node._left = _left;
-                root = node;
-                return 0;
+                root = new BinaryDataTree<TKey, TValue>(pair, this, this);
+                return 1;
             }
+
+            public override bool TryGetValue(TKey key, IComparer<TKey> keyComparer, out TValue value)
+            {
+                value = default(TValue);
+                return false;
+            }
+
+            protected override bool IsEmpty => true;
         }
     }
 }
