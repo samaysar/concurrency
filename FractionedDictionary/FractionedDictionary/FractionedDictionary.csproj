@@ -40,9 +40,11 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="BaseDictionary.cs" />
+    <Compile Include="Abs\BaseDictionary.cs" />
     <Compile Include="DataHolder.cs" />
     <Compile Include="FixedValues.cs" />
+    <Compile Include="Impl\DataTree.cs" />
+    <Compile Include="Impl\Rind.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
